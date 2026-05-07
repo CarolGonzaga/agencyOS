@@ -2141,7 +2141,7 @@ body {
 // ================================================
 const SUPABASE_URL = 'https://ntgopmgfddezedkivrlu.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im50Z29wbWdmZGRlemVka2l2cmx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMTA3NDcsImV4cCI6MjA5MzY4Njc0N30.TmbeNlA1YmBKhDsNYbZyHlbI15VEm5q9xcqb0_HIYek';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 // ================================================
 // STATE
@@ -2222,20 +2222,20 @@ function updateDateGreeting() {
 async function loadFromSupabase() {
   try {
     // 1. Busca projetos
-    const { data: projects, error: pErr } = await supabase
+    const { data: projects, error: pErr } = await db
       .from('projects')
       .select('*')
       .order('created_at', { ascending: false });
     if (pErr) throw pErr;
 
     // 2. Busca tasks
-    const { data: tasks, error: tErr } = await supabase
+    const { data: tasks, error: tErr } = await db
       .from('tasks')
       .select('*');
     if (tErr) throw tErr;
 
     // 3. Busca installments
-    const { data: installments, error: iErr } = await supabase
+    const { data: installments, error: iErr } = await db
       .from('installments')
       .select('*');
     if (iErr) throw iErr;
@@ -2299,7 +2299,7 @@ async function saveProjectToSupabase(projectId) {
 
   try {
     // Upsert do projeto principal
-    const { error: pErr } = await supabase
+    const { error: pErr } = await db
       .from('projects')
       .upsert({
         id: p.id,
@@ -2323,14 +2323,14 @@ async function saveProjectToSupabase(projectId) {
     if (pErr) throw pErr;
 
     // Sincroniza tasks: apaga as antigas e re-insere
-    const { error: dtErr } = await supabase
+    const { error: dtErr } = await db
       .from('tasks')
       .delete()
       .eq('project_id', p.id);
     if (dtErr) throw dtErr;
 
     if (p.tasks && p.tasks.length > 0) {
-      const { error: itErr } = await supabase
+      const { error: itErr } = await db
         .from('tasks')
         .insert(p.tasks.map(t => ({
           id: t.id,
@@ -2346,7 +2346,7 @@ async function saveProjectToSupabase(projectId) {
     }
 
     // Sincroniza installments
-    const { error: diErr } = await supabase
+    const { error: diErr } = await db
       .from('installments')
       .delete()
       .eq('project_id', p.id);
@@ -2354,7 +2354,7 @@ async function saveProjectToSupabase(projectId) {
 
     const insts = p.financial?.installments || [];
     if (insts.length > 0) {
-      const { error: iiErr } = await supabase
+      const { error: iiErr } = await db
         .from('installments')
         .insert(insts.map(i => ({
           id: i.id,
@@ -2381,9 +2381,9 @@ async function deleteProjectFromSupabase(projectId) {
   try {
     // Cascade DELETE deve cuidar de tasks e installments se configurado com FK + ON DELETE CASCADE.
     // Como fallback, apagamos manualmente.
-    await supabase.from('tasks').delete().eq('project_id', projectId);
-    await supabase.from('installments').delete().eq('project_id', projectId);
-    const { error } = await supabase.from('projects').delete().eq('id', projectId);
+    await db.from('tasks').delete().eq('project_id', projectId);
+    await db.from('installments').delete().eq('project_id', projectId);
+    const { error } = await db.from('projects').delete().eq('id', projectId);
     if (error) throw error;
   } catch (err) {
     console.error('Erro ao excluir do Supabase:', err);
